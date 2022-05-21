@@ -84,8 +84,11 @@ func (rc *RegisterCard) CardNumberGenerator(n int) string {
 
 func (rc *RegisterCard) CreateCard() models.Card {
 	var card models.Card
+	var history models.TransactionHistory
 	now := time.Now()
 	date := now.AddDate(4, 0, 0)
+	history.ActionDate = now.Format(time.ANSIC)
+	history.Action = "Card has been opened"
 	options := []string{"Master Card", "Visa Card"}
 	cardNumber := rc.CardNumberGenerator(configs.CardNumberLength)
 	card.User = rc.Id
@@ -94,6 +97,7 @@ func (rc *RegisterCard) CreateCard() models.Card {
 	card.Network = options[rc.TypeCard]
 	card.ExpirationDate = date.Format("2006-01-02")
 	card.Balance = 0.0
+	card.TransactionHistory = append(card.TransactionHistory, history)
 	return card
 }
 

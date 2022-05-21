@@ -1,5 +1,6 @@
 package models
 
+
 type User struct {
 	Name     string `json:"name,omitempty" validate:"required"`
 	Address  string `json:"address,omitempty" validate:"required"`
@@ -10,11 +11,20 @@ type User struct {
 	State    string `json:"state,omitempty" validate:"required"`
 }
 
+type TransactionHistory struct {
+	TransferredFrom string
+	TransferredTo string
+	AmountTransferred float32
+	ActionDate string
+	Action string
+}
+
 type Card struct {
-	User           string
-	Number         string
-	ExpirationDate string
-	SecurityCode   string
-	Network        string
-	Balance        float32
+	User            string
+	Number          string
+	ExpirationDate  string
+	SecurityCode    string
+	Network         string
+	Balance         float32
+	TransactionHistory []TransactionHistory
 }
