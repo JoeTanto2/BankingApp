@@ -167,6 +167,13 @@ func (t *Transfer) Validate() int {
 	return 1
 }
 
+func (t *Transfer) HistoryMessages() (string, string, string) {
+	messageSender := fmt.Sprintf("You have transferred %f usd to %s", t.Amount, t.To)
+	messageReceiver := fmt.Sprintf("You have received a transfer of %f usd from %s", t.Amount, t.From)
+	now := time.Now().Format(time.ANSIC)
+	return messageSender, messageReceiver, now
+}
+
 func (t *Transfer) Finalize() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -176,11 +183,16 @@ func (t *Transfer) Finalize() int {
 	_ = userCollection.FindOne(ctx, bson.M{"number": t.To}).Decode(&cardTo)
 	cardFromNewAmount := cardFrom.Balance - t.Amount
 	cardToNewAmount := cardTo.Balance + t.Amount
-	_, err := userCollection.UpdateOne(ctx, bson.M{"number": t.From}, bson.M{"$set": bson.M{"balance": cardFromNewAmount}})
+	messageSender, messageReceiver, timeNow := t.HistoryMessages()
+	history := models.TransactionHistory{Action: messageSender, ActionDate: timeNow}
+	var transactionHistory []models.TransactionHistory = append(cardFrom.TransactionHistory, history)
+	_, err := userCollection.UpdateOne(ctx, bson.M{"number": t.From}, bson.M{"$set": bson.M{"balance": cardFromNewAmount, "transactionhistory": transactionHistory}})
 	if err != nil {
 		return -1
 	}
-	_, err = userCollection.UpdateOne(ctx, bson.M{"number": t.To}, bson.M{"$set": bson.M{"balance": cardToNewAmount}})
+	historyReceiver := models.TransactionHistory{Action: messageReceiver, ActionDate: timeNow}
+	var transactionHistoryReceiver []models.TransactionHistory = append(cardTo.TransactionHistory, historyReceiver)
+	_, err = userCollection.UpdateOne(ctx, bson.M{"number": t.To}, bson.M{"$set": bson.M{"balance": cardToNewAmount, "transactionhistory": transactionHistoryReceiver}})
 	if err != nil {
 		return -1
 	}
