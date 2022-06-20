@@ -201,15 +201,14 @@ func Deposit() gin.HandlerFunc {
 		var d types.Deposit
 		var card models.Card
 		defer cancel()
-		err := c.ShouldBind(&d)
-		if err != nil {
+		if err := c.ShouldBind(&d); err != nil {
 			c.JSON(
 				400,
 				gin.H{
 					"message": "Please make sure you provided: card number and the amount correctly",
 				})
 			return
-		}
+		};
 		d.Validate()
 		response := d.DepositCash()
 		if response == -1 {
@@ -220,12 +219,11 @@ func Deposit() gin.HandlerFunc {
 				})
 			return
 		}
-		err = userCollection.FindOne(ctx, bson.M{"user": d.Id, "number": d.Number}).Decode(&card)
-		if err != nil {
+		if err := userCollection.FindOne(ctx, bson.M{"number": d.Number}).Decode(&card); err != nil {
 			c.JSON(
 				404,
 				gin.H{
-					"message": "We tried to deposit the cash on your card but could not retrieve your card",
+					"message": err.Error(),
 				})
 			return
 		}

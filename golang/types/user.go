@@ -4,6 +4,7 @@ import (
 	"banking-app/configs"
 	"banking-app/models"
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -73,7 +74,6 @@ func (rc *RegisterCard) CardNumberGenerator(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	err := userCollection.FindOne(ctx, bson.M{"number": string(b)}).Decode(&card)
-	log.Println(card)
 	if err == nil {
 		log.Println("It has restarted")
 		return rc.CardNumberGenerator(configs.CardNumberLength)
@@ -84,8 +84,11 @@ func (rc *RegisterCard) CardNumberGenerator(n int) string {
 
 func (rc *RegisterCard) CreateCard() models.Card {
 	var card models.Card
+	var history models.TransactionHistory
 	now := time.Now()
 	date := now.AddDate(4, 0, 0)
+	history.ActionDate = now.Format(time.ANSIC)
+	history.Action = "Card has been opened"
 	options := []string{"Master Card", "Visa Card"}
 	cardNumber := rc.CardNumberGenerator(configs.CardNumberLength)
 	card.User = rc.Id
@@ -94,6 +97,7 @@ func (rc *RegisterCard) CreateCard() models.Card {
 	card.Network = options[rc.TypeCard]
 	card.ExpirationDate = date.Format("2006-01-02")
 	card.Balance = 0.0
+	card.TransactionHistory = append(card.TransactionHistory, history)
 	return card
 }
 
@@ -113,14 +117,22 @@ func (d *Deposit) Validate() {
 	filter := bson.M{"number": d.Number}
 	err := userCollection.FindOne(ctx, filter).Decode(&card)
 	if err != nil {
-		panic("You dont't have card with the number of " + d.Number)
+		log.Panicln(err.Error())
+		// panic(fmt.Sprintf("You dont't have card with the number of %v", d.Number))
 	}
 }
 
 func (d *Deposit) DepositCash() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := userCollection.UpdateOne(ctx, bson.M{"user": d.Id, "number": d.Number}, bson.M{"$set": bson.M{"balance": d.Amount}})
+	var card models.Card
+	deposited := fmt.Sprintf("Deposited %v on %v", d.Amount, d.Number)
+	now := time.Now().Format(time.ANSIC)
+	_ = userCollection.FindOne(ctx, bson.M{"number": d.Number}).Decode(&card)
+	history := models.TransactionHistory{Action: deposited, ActionDate: now}
+	var transactionHistory []models.TransactionHistory = append(card.TransactionHistory, history)
+	new_balance := card.Balance + d.Amount
+	_, err := userCollection.UpdateOne(ctx, bson.M{"user": d.Id, "number": d.Number}, bson.M{"$set": bson.M{"balance": new_balance, "transactionhistory": transactionHistory}})
 	if err != nil {
 		return -1
 	}
